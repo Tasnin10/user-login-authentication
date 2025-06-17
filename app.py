@@ -9,8 +9,8 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Use environment variables for configuration
-app.secret_key = os.getenv('SECRET_KEY', 'dev_secret_key')  # fallback for local dev
+# Configuration
+app.secret_key = os.getenv('SECRET_KEY', 'dev_secret_key')  # Use a strong secret key in production
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -22,7 +22,7 @@ class User(db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
 
-# Home route redirects to login or shows welcome if logged in
+# Home route - shows welcome if logged in, else redirects to login
 @app.route('/')
 def home():
     if 'user_id' in session:
@@ -30,7 +30,7 @@ def home():
         return render_template('home.html', username=user.username)
     return redirect(url_for('login'))
 
-# Register route with error handling
+# Register route
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -55,13 +55,12 @@ def register():
             return redirect(url_for('login'))
         except Exception as e:
             db.session.rollback()
-            flash('An error occurred. Please try again.')
-            # Optionally log e here
+            flash('An error occurred during registration. Please try again.')
             return redirect(url_for('register'))
 
     return render_template('register.html')
 
-# Login route with validation
+# Login route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -86,9 +85,8 @@ def logout():
     flash('You have been logged out.')
     return redirect(url_for('login'))
 
-# Create tables before first request
-@app.before_first_request
-def create_tables():
+# Auto-create tables on app startup (works with Gunicorn and Python 3.13+)
+with app.app_context():
     db.create_all()
 
 if __name__ == '__main__':
