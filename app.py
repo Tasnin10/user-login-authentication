@@ -1,7 +1,7 @@
-import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,8 +18,11 @@ class User(db.Model):
 
 @app.route('/')
 def home():
-    # Redirect root URL to login page
-    return redirect(url_for('login'))
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        return render_template('home.html', username=user.username)
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -29,8 +32,8 @@ def register():
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
             return redirect(url_for('register'))
-        user = User(username=username, password=password)
-        db.session.add(user)
+        new_user = User(username=username, password=password)
+        db.session.add(new_user)
         db.session.commit()
         flash('Registration successful. Please log in.')
         return redirect(url_for('login'))
@@ -44,9 +47,15 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password, password):
             session['user_id'] = user.id
-            return 'Logged in successfully'
-        flash('Invalid credentials')
+            return redirect(url_for('home'))
+        flash('Invalid username or password')
     return render_template('login.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user_id', None)
+    flash('Logged out successfully')
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     with app.app_context():
